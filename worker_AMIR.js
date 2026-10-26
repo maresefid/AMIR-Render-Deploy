@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 const Version = '2026-10-08 22:23:27';
 let config_JSON, 缓存SOCKS5白名单 = null, 调试日志打印 = false;
 let SOCKS5白名单 = ['*tapecontent.net', '*cloudatacdn.com', '*loadshare.org', '*cdn-centaurus.com', 'scholar.google.com'];
@@ -2295,7 +2296,7 @@ async function SS派生主密钥(passwordText, keyLen) {
 		while (result.byteLength < keyLen) {
 			const input = new Uint8Array(prev.byteLength + pwBytes.byteLength);
 			input.set(prev, 0); input.set(pwBytes, prev.byteLength);
-			prev = new Uint8Array(await crypto.subtle.digest('MD5', input));
+			prev = new Uint8Array(await md5Digest(input));
 			result = 拼接字节数据(result, prev);
 		}
 		return result.slice(0, keyLen);
@@ -4376,7 +4377,7 @@ async function turnConnect(proxy, targetHost, targetPort, TCP连接) {
 			if (!realmBytes || !nonce?.byteLength) throw new Error('TURN authentication challenge is missing realm or nonce');
 
 			const realm = textDecoder.decode(realmBytes);
-			integrityKey = new Uint8Array(await crypto.subtle.digest('MD5', textEncoder.encode(`${proxy.username}:${realm}:${proxy.password}`)));
+			integrityKey = new Uint8Array(await md5Digest(textEncoder.encode(`${proxy.username}:${realm}:${proxy.password}`)));
 			authAttributes = [
 				createTurnStunAttribute(TURN_STUN_ATTR.USERNAME, textEncoder.encode(proxy.username)),
 				createTurnStunAttribute(TURN_STUN_ATTR.REALM, textEncoder.encode(realm)),
@@ -5569,16 +5570,21 @@ function 掩码敏感信息(文本, 前缀长度 = 3, 后缀长度 = 2) {
 	return `${前缀}${'*'.repeat(星号数量)}${后缀}`;
 }
 
-async function MD5MD5(文本) {
-	const 编码器 = new TextEncoder();
+function md5Digest(data) {
+	const bytes = data instanceof ArrayBuffer
+		? Buffer.from(data)
+		: ArrayBuffer.isView(data)
+			? Buffer.from(data.buffer, data.byteOffset, data.byteLength)
+			: Buffer.from(data);
+	const digest = createHash('md5').update(bytes).digest();
+	return Uint8Array.from(digest).buffer;
+}
 
-	const 第一次哈希 = await crypto.subtle.digest('MD5', 编码器.encode(文本));
-	const 第一次哈希数组 = Array.from(new Uint8Array(第一次哈希));
-	const 第一次十六进制 = 第一次哈希数组.map(字节 => 字节.toString(16).padStart(2, '0')).join('');
-
-	const 第二次哈希 = await crypto.subtle.digest('MD5', 编码器.encode(第一次十六进制.slice(7, 27)));
-	const 第二次哈希数组 = Array.from(new Uint8Array(第二次哈希));
-	const 第二次十六进制 = 第二次哈希数组.map(字节 => 字节.toString(16).padStart(2, '0')).join('');
+function MD5MD5(文本) {
+	const 第一次十六进制 = createHash('md5').update(String(文本), 'utf8').digest('hex');
+	const 第二次十六进制 = createHash('md5')
+		.update(第一次十六进制.slice(7, 27), 'utf8')
+		.digest('hex');
 
 	return 第二次十六进制.toLowerCase();
 }
