@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: amir-edge-panel
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: UUID
+        sync: false
+      - key: REDIS_URL
+        sync: false
